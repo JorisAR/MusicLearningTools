@@ -1,0 +1,9 @@
+{
+  "name": "music-learning-tools",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.js 5173",
+    "test": "node --test tests/"
+  }
+}

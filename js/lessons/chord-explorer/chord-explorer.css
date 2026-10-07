@@ -1,0 +1,405 @@
+/* Chord Explorer. Shared pieces (panels, controls, fretboard, diagrams) live in css/theme.css. */
+
+.tabs-bar {
+  display: flex;
+  justify-content: flex-start;
+}
+.tabs-bar .segmented {
+  padding: 4px;
+}
+.tabs-bar .seg-btn {
+  padding: 8px 16px;
+  font-size: 15px;
+}
+.tab-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.tab-view > * {
+  min-width: 0;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: flex-end;
+}
+.controls-row .spacer {
+  flex: 1;
+}
+.controls-row .switch {
+  align-self: center;
+}
+
+.chord-input-row {
+  display: flex;
+  gap: 10px;
+}
+.chord-input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  padding: 0 18px;
+  border-radius: 13px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: border-color 0.15s, background 0.15s;
+}
+.chord-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+.chord-input::placeholder {
+  color: var(--muted);
+  font-weight: 450;
+  font-size: 17px;
+}
+.chord-input-row .btn {
+  height: 52px;
+}
+
+/* --- chord finder ---------------------------------------------------------- */
+.chord-results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.chord-summary {
+  display: grid;
+  gap: 14px;
+}
+.chord-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+.chord-title {
+  font-size: 30px;
+  font-weight: 750;
+}
+.tone-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.tone-chip {
+  display: inline-grid;
+  justify-items: center;
+  min-width: 40px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  line-height: 1.25;
+}
+.tone-chip b {
+  font-size: 14px;
+}
+.tone-chip small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.tone-chip.root {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.tone-chip.guide {
+  border-color: color-mix(in srgb, var(--chord) 60%, var(--border));
+}
+.tone-chip.color {
+  border-color: color-mix(in srgb, var(--changed) 60%, var(--border));
+}
+.tone-chip.optional {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.voicing-group {
+  display: grid;
+  gap: 10px;
+}
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.group-head h3 {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.group-head .muted {
+  font-size: 13px;
+}
+.voicing-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+.voicing-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.15s var(--ease), border-color 0.15s, box-shadow 0.15s;
+}
+.voicing-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--muted);
+}
+.voicing-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 6px 20px -8px var(--accent);
+}
+.voicing-tags {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.more {
+  justify-self: start;
+  font-size: 14px;
+}
+.empty-state {
+  display: grid;
+  gap: 12px;
+  color: var(--muted);
+}
+
+/* --- shape library ---------------------------------------------------------- */
+.library-intro {
+  display: grid;
+  gap: 12px;
+}
+.library-intro h2 {
+  font-size: 20px;
+}
+.library-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+}
+.library-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 13px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.library-name {
+  justify-self: start;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.library-name:hover {
+  color: var(--accent);
+}
+.library-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.diagram-btn {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+.diagram-btn:hover {
+  background: var(--surface-2);
+}
+.diagram-btn:active .chord-diagram {
+  transform: scale(0.97);
+}
+
+/* --- progression builder ---------------------------------------------------- */
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.transport-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.transport-ctl .field {
+  grid-auto-flow: column;
+  align-items: center;
+}
+.prog-name {
+  font-weight: 600;
+}
+.prog-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.prog-card {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s var(--ease);
+}
+.prog-card.focused {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 8px 24px -10px var(--accent);
+  transform: translateY(-2px);
+}
+.prog-card.invalid {
+  border-style: dashed;
+  align-content: start;
+}
+.prog-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 26px;
+}
+.prog-symbol {
+  font-size: 18px;
+  font-weight: 750;
+}
+.lock {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.lock:hover {
+  background: var(--surface-2);
+}
+.prog-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.step {
+  width: 32px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.step:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rank {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.prog-tags {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+}
+.prog-info {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+.top-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.top-line .field-label {
+  margin-right: 6px;
+}
+.top-note {
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.top-line .arrow {
+  color: var(--muted);
+}
+.neck-title {
+  font-size: 16px;
+  font-weight: 650;
+  margin-bottom: 6px;
+}
+.legend-dot.ghost {
+  background: transparent;
+  border: 1.5px dashed var(--muted);
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 20px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.25s var(--ease);
+  z-index: 20;
+}
+.toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (max-width: 560px) {
+  .chord-input {
+    font-size: 18px;
+  }
+  .chord-title {
+    font-size: 24px;
+  }
+  .voicing-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .prog-row {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+}

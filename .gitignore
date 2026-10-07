@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Node (no dependencies today, but just in case)
+node_modules/
+npm-debug.log*
+
+# Local Claude Code settings (launch.json is shared and fine to commit)
+.claude/settings.local.json
