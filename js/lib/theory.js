@@ -148,6 +148,11 @@ export const SCALES = {
     signature: ['b9', '#9', '#11'],
     mood: 'Symmetrical tension over 7♭9 chords. The pattern repeats every 3 frets.',
   }),
+  dimWholeHalf: S('Diminished (whole-half)', ['1', '2', 'b3', '4', 'b5', 'b6', 'bb7', '7'], {
+    compare: 'minor',
+    signature: ['bb7', '7'],
+    mood: 'The sound of a dim7 chord: stacked minor thirds plus a note a whole step above each.',
+  }),
   wholeTone: S('Whole tone', ['1', '2', '3', '#4', '#5', 'b7'], {
     compare: 'mixolydian',
     signature: ['#4', '#5'],
@@ -172,7 +177,7 @@ export const SCALE_GROUPS = [
   { label: 'Modes (bright → dark)', ids: MODE_LADDER },
   { label: 'Pentatonic & blues', ids: ['majorPentatonic', 'minorPentatonic', 'blues'] },
   { label: 'Minor family', ids: ['harmonicMinor', 'melodicMinor'] },
-  { label: 'Jazz & fusion', ids: ['lydianDominant', 'phrygianDominant', 'altered', 'dimHalfWhole', 'wholeTone'] },
+  { label: 'Jazz & fusion', ids: ['lydianDominant', 'phrygianDominant', 'altered', 'dimHalfWhole', 'dimWholeHalf', 'wholeTone'] },
 ];
 
 /** Map of pitch class → { pc, name, degree, interval } for a scale in a key. */

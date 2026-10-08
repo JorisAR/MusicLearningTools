@@ -2,6 +2,9 @@ import { h } from './ui/dom.js';
 import { segmented, chips } from './ui/controls.js';
 import { onRoute, replaceParams } from './router.js';
 import { LESSONS, TYPES, getLesson } from './lessons.js';
+import { DEMOS } from './song/demos.js';
+
+const LISTED = LESSONS.filter((l) => !l.hidden);
 
 const app = document.getElementById('app');
 const SITE_TITLE = 'Music Learning Tools';
@@ -48,8 +51,8 @@ function renderHome(params) {
     tags: params.tags ? params.tags.split(',') : [],
   };
 
-  const allTags = [...new Set(LESSONS.flatMap((l) => l.tags))].sort();
-  const typesPresent = Object.keys(TYPES).filter((t) => LESSONS.some((l) => l.type === t));
+  const allTags = [...new Set(LISTED.flatMap((l) => l.tags))].sort();
+  const typesPresent = Object.keys(TYPES).filter((t) => LISTED.some((l) => l.type === t));
 
   const grid = h('div', { class: 'card-grid' });
   const count = h('p', { class: 'result-count' });
@@ -97,7 +100,7 @@ function renderHome(params) {
 
   function draw() {
     const q = state.q.trim().toLowerCase();
-    const list = LESSONS.filter(
+    const list = LISTED.filter(
       (l) =>
         (state.type === 'all' || l.type === state.type) &&
         state.tags.every((t) => l.tags.includes(t)) &&
@@ -115,9 +118,11 @@ function renderHome(params) {
     h(
       'section',
       { class: 'hero' },
-      h('h1', {}, 'Practice tools for ', h('span', { class: 'accent-text' }, 'musicians')),
-      h('p', { class: 'lede' }, 'Small, focused, interactive. Pick a tool, tweak it, learn by ear and by eye.'),
+      h('h1', {}, 'Sketch it. See it. ', h('span', { class: 'accent-text' }, 'Play it.')),
+      h('p', { class: 'lede' }, 'Jot down a song in seconds, then see exactly how to play it on guitar or piano — or dive into the focused tools below.'),
     ),
+    songsSection(),
+    h('h2', { class: 'home-subhead' }, 'Tools'),
     h(
       'section',
       { class: 'filters' },
@@ -128,6 +133,28 @@ function renderHome(params) {
     grid,
   );
   draw();
+}
+
+function songsSection() {
+  let last = null;
+  try {
+    last = JSON.parse(localStorage.getItem('mlt-song-last') || 'null');
+  } catch {}
+  const songCard = (href, icon, title, sub, cls = '') =>
+    h('a', { class: `song-card ${cls}`, href }, h('span', { class: 'song-card-icon', aria: { hidden: 'true' } }, icon), h('strong', {}, title), h('span', { class: 'muted' }, sub));
+  return h(
+    'section',
+    { class: 'songs-home' },
+    h('h2', { class: 'home-subhead' }, 'Songs'),
+    h(
+      'div',
+      { class: 'song-cards' },
+      songCard('#/lesson/song?new=1&view=sketch', '＋', 'New song', 'Start a blank 4-bar sketch', 'new'),
+      last?.title &&
+        songCard('#/lesson/song', '▶', `Continue “${last.title}”`, `${last.sections?.length ?? 1} section${last.sections?.length === 1 ? '' : 's'} · ${last.tempo} bpm`, 'continue'),
+      ...DEMOS.map((d) => songCard(`#/lesson/song?demo=${d.id}&view=practice`, '♪', d.title, d.blurb, 'demo')),
+    ),
+  );
 }
 
 function card(l) {
@@ -159,18 +186,21 @@ async function renderLesson(id, params) {
   }
   document.title = `${lesson.title} · ${SITE_TITLE}`;
   const mountPoint = h('div', { class: 'lesson-body' });
+  const compact = lesson.chrome === 'compact';
   app.replaceChildren(
     h(
       'header',
-      { class: 'lesson-head' },
-      h('a', { class: 'back', href: '#/' }, '← All tools'),
-      h('h1', {}, lesson.title),
-      h('p', { class: 'lede' }, lesson.summary),
+      { class: `lesson-head${compact ? ' compact' : ''}` },
+      h('a', { class: 'back', href: '#/' }, '← Home'),
+      !compact && h('h1', {}, lesson.title),
+      !compact && h('p', { class: 'lede' }, lesson.summary),
     ),
     mountPoint,
   );
   const token = (renderLesson.token = {});
   const mod = await lesson.load();
   if (renderLesson.token !== token) return; // navigated away while loading
-  cleanup = mod.default.mount(mountPoint, { params, setParams: replaceParams, lesson }) || null;
+  const done = (await mod.default.mount(mountPoint, { params, setParams: replaceParams, lesson })) || null;
+  if (renderLesson.token !== token) return done?.(); // navigated away while mounting
+  cleanup = done;
 }

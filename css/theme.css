@@ -883,3 +883,58 @@ kbd {
     animation-duration: 0.01ms !important;
   }
 }
+
+/* --- home: songs ------------------------------------------------------------ */
+.home-subhead {
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 8px 0 12px;
+}
+.songs-home {
+  margin-bottom: 28px;
+}
+.song-cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+.song-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  text-decoration: none;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s var(--ease), border-color 0.2s;
+}
+.song-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+.song-card .muted {
+  font-size: 13px;
+}
+.song-card-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 16px;
+}
+.song-card.new .song-card-icon,
+.song-card.continue .song-card-icon {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.lesson-head.compact {
+  margin-bottom: 10px;
+}

@@ -15,6 +15,12 @@ function audio() {
   return ctx;
 }
 
+/** Shared AudioContext + master gain for other engines (song player, samplers). */
+export function getAudio() {
+  const ac = audio();
+  return { ctx: ac, master };
+}
+
 function pluckBuffer(midi) {
   if (cache.has(midi)) return cache.get(midi);
   const ac = audio();

@@ -7,6 +7,7 @@ Small, interactive music practice tools. Plain HTML/CSS/JS (native ES modules): 
 
 | Tool | What it does |
 | --- | --- |
+| **Song Sketchpad** | Sketch chords, drums and bass per section (any meter, swing), then practice along with guitar & piano views, chord-scale overlay, loop, slow-down and count-in. |
 | **CAGED Scale Explorer** | Any mode or scale across the neck, one CAGED shape at a time. Brightness ladder, "show what changes" compare, drone, playback. |
 | **Chord Explorer** | Type any chord symbol and get every sensible voicing. Build progressions that voice-lead close together. Includes a shape library. |
 
@@ -37,21 +38,30 @@ You can also upload the folder to any static host, including a sub-path like `ex
 ```
 index.html                    App shell (header, <main id="app">, footer)
 css/theme.css                 The one theme: design tokens (light/dark), components, fretboard & chord diagrams
-js/app.js                     Router wiring, home page (search + type + tag filters), lesson mounting
+js/app.js                     Router wiring, home page (songs + tools grid), lesson mounting
 js/router.js                  Hash router: #/lesson/<id>?key=value…
 js/lessons.js                 ★ Lesson registry: add an entry here to put a lesson on the site
+js/vendor/preact-htm.js       Preact + hooks + htm, vendored (no build step, no CDN)
 js/lib/theory.js              Pure theory: pitch classes, degree spelling, scales & modes
 js/lib/guitar.js              Tunings, fretboard math, CAGED shape data
-js/lib/chords.js              Chord parser, voicing search, progression voice-leading, random chords
-js/lib/audio.js               Plucked-string synth, strum, drone (Web Audio, no samples)
-js/ui/dom.js                  h() / svg() element helpers, loadCss()
-js/ui/controls.js             segmented(), toggle(), select(), chips()
-js/ui/fretboard.js            Reusable horizontal SVG fretboard
-js/ui/chord-diagram.js        Reusable vertical chord box
-js/lessons/<id>/              One folder per lesson (JS + optional CSS)
+js/lib/chords.js              Chord parser, voicing search, voice-leading, transposition
+js/lib/chordscale.js          Which scale fits a chord in a key (Dm9 in C → D Dorian)
+js/lib/piano.js               Voice-led & rootless piano voicings
+js/lib/audio.js               Plucked-string synth, strum, drone, shared AudioContext
+js/song/model.js              Song document: meters, sections, arrangement, quick chord entry
+js/song/timeline.js           Song → bars, chords (with guitar/piano voicings, chord-scales), audio events
+js/song/generate/             Drum and bass generators (style presets for any meter)
+js/song/store.js              Tiny reactive store + useStore hook; song store with undo & last-song cache
+js/song/codec.js              Share links (deflate + base64url) and JSON files
+js/song/demos.js              Demo songs & the "new song" template
+js/engine/player.js           Look-ahead Web Audio scheduler (loop, tempo %, count-in)
+js/engine/instruments.js      Sampled instruments (FluidR3 via CDN, on demand), synth drums, click, mixer
+js/ui/                        dom helpers, vanilla controls, Preact controls, fretboard, chord diagram
+js/lessons/<id>/              One folder per lesson (JS + optional CSS); song/ is the Song Sketchpad
 js/lessons/_template/         Starter lesson to copy (not deployed)
 tests/                        node --test suites
 scripts/serve.js              No-cache dev server
+docs/design.md                The learning-suite design & roadmap
 .github/workflows/deploy.yml  Test + deploy to GitHub Pages
 ```
 
@@ -78,6 +88,18 @@ Everything reads from CSS custom properties at the top of `css/theme.css`. The c
 | `--accent` | Root |
 | `--chord` | Chord tones / guide tones (3rd, 7th) |
 | `--changed` | What's different: changed scale notes, chord extensions & alterations |
+
+## Song Sketchpad
+
+Open it from **Songs** on the home page (new song, continue the last one, or a demo).
+
+- **Sketch:** every section has a name, bars, a meter with grouping (`7/8` as `2+2+3`), a drum style and a bass style. Type chords into the bar grid (one slot per group), or into the quick-entry line: `Dm9 G13 | Cmaj9 | %` (`|` bars, `%` repeat bar, `.` hold). Chain sections in the arrangement with repeats. Tempo, swing, key/scale (used for chord-scale suggestions) and transpose are song-wide.
+- **Practice:** play / loop the song or a section, slow down (40–130 %, no pitch change), count-in, click. Mute any part to play it yourself. The **Now/Next** panel shows the chord, its tones and a suggested scale; the strip shows the section's bars. Lenses:
+  - **Guitar:** voice-led voicings for the whole song (Auto / Low / Mid / High), the next chord as ghosts, fingers that stay put, and the chord-scale around your hand.
+  - **Piano:** voice-led right hand over the bass, or jazz rootless left hand; scale dots and next-chord ghosts.
+- **Saving:** only the last song is cached in this browser. Use **Song ▾ → Copy share link** (the whole song in the URL) or **Save as file** / **Open file…** (JSON).
+- Shortcuts: `Space` play/stop · `←/→` previous/next chord (Practice) · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo.
+- Sounds: chords and bass use FluidR3 GM samples loaded on first play from `gleitz.github.io` (cached by the browser); a synth fills in until they arrive. Drums and click are synthesized.
 
 ## CAGED Scale Explorer
 

@@ -508,3 +508,32 @@ export function randomProgression(rng = Math.random) {
   const key = KEYS[Math.floor(rng() * 12)];
   return { name: t.name, key, chords: realize(t, key) };
 }
+
+// ---------------------------------------------------------------------------
+// Transposition
+// ---------------------------------------------------------------------------
+
+/** Transpose a chord symbol: transposeSymbol('Dm9/F', 2) → 'Em9/G'. Flats preferred when asked. */
+export function transposeSymbol(symbol, semitones, preferFlats = false) {
+  if (!semitones) return symbol;
+  const m = /^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/.exec(String(symbol).trim());
+  if (!m) return symbol;
+  const names = preferFlats ? FLAT_NAMES : KEYS;
+  const move = (n) => names[mod12(pitchClass(n) + semitones)];
+  return move(m[1]) + m[2] + (m[3] ? `/${move(m[3])}` : '');
+}
+
+/** Coarse chord family, used by generators and chord-scale suggestions. */
+export function chordQuality(chord) {
+  const has = (tok) => chord.tones.some((t) => t.token === tok);
+  const third = has('3') ? 'major' : has('b3') ? 'minor' : has('4') || has('2') ? 'sus' : 'none';
+  if (has('bb7')) return 'dim7';
+  if (third === 'minor' && has('b5') && has('b7')) return 'half-dim';
+  if (third === 'minor' && has('b5')) return 'dim';
+  if (third === 'major' && has('#5') && !has('b7')) return 'aug';
+  if (has('b7')) return third === 'minor' ? 'minor7' : third === 'sus' ? 'sus7' : 'dominant';
+  if (has('7')) return third === 'minor' ? 'minor-major7' : 'major7';
+  if (third === 'minor') return 'minor';
+  if (third === 'sus') return 'sus';
+  return 'major';
+}

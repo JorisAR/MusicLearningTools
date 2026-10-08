@@ -9,6 +9,8 @@
 //   load     – () => import(...) of a module whose default export is
 //              { mount(el, ctx) → cleanup? }   (see README.md)
 //   status   – optional: 'planned' shows a dimmed "coming soon" card
+//   hidden   – optional: routable, but not listed in the tools grid
+//   chrome   – optional: 'compact' skips the big title header
 
 export const TYPES = {
   tool: { label: 'Tool', plural: 'Tools' },
@@ -18,6 +20,16 @@ export const TYPES = {
 };
 
 export const LESSONS = [
+  {
+    id: 'song',
+    title: 'Song Sketchpad',
+    summary: 'Sketch chords, drums and bass, then practice them on guitar and piano.',
+    type: 'tool',
+    tags: ['songs', 'practice', 'guitar', 'piano'],
+    load: () => import('./lessons/song/song.js'),
+    hidden: true, // reached from the Songs section on the home page
+    chrome: 'compact', // the app draws its own header
+  },
   {
     id: 'caged-scales',
     title: 'CAGED Scale Explorer',
