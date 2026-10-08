@@ -938,3 +938,29 @@ kbd {
 .lesson-head.compact {
   margin-bottom: 10px;
 }
+
+/* melody notes on the fretboard (song practice) */
+.note.melody .note-body {
+  opacity: 1;
+  transform: scale(1.15);
+}
+.note.melody .note-dot {
+  fill: var(--text);
+  stroke: var(--accent);
+  stroke-width: 3.5;
+}
+.note.melody .note-label {
+  fill: var(--bg);
+}
+.note.upcoming .note-label {
+  fill: var(--accent);
+  font-weight: 800;
+}
+.note.on.quiet .note-body {
+  opacity: 0.55;
+  transform: scale(0.82);
+}
+.legend-dot.melody {
+  background: var(--text);
+  box-shadow: 0 0 0 2.5px var(--accent);
+}

@@ -86,7 +86,9 @@ export function createSongStore(song) {
       const draft = structuredClone(cur);
       fn(draft);
       const next = normalizeSong(draft);
-      if (!(coalesce && coalesce === lastKey && now - lastTime < 1000)) {
+      // Same key within a second (typing) merges into one undo step; 'take:' keys always merge.
+      const merge = coalesce && coalesce === lastKey && (now - lastTime < 1000 || coalesce.startsWith('take:'));
+      if (!merge) {
         past.push(cur);
         if (past.length > 100) past.shift();
       }

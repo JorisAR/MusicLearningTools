@@ -20,6 +20,8 @@ export function compact(song) {
       name: s.name,
       bars: s.bars,
       meter: s.meter,
+      color: s.color,
+      ...(s.gtrPos ? { gtrPos: s.gtrPos } : {}),
       chords: s.chords,
       ...(s.melody.length ? { melody: s.melody } : {}),
       bass: s.bass,

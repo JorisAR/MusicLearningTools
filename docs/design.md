@@ -1,6 +1,6 @@
 # Design: Song-centered learning suite
 
-> Status: **Phase 1 built** (2026-10-08). Phases 2–4 below are still plans.
+> Status: **Phases 1 & 2 built** (2026-10-08). Phases 3–4 below are still plans.
 
 ## Goal
 
@@ -98,7 +98,7 @@ js/
    - chord lane, drum presets, auto bass, scheduler, samples
    - practice view with the guitar lens (chords) and piano keyboard
    - loop / slow down / count-in / metronome, chord-scale overlay
-2. **Melody & instruments:**
+2. ✅ **Melody & instruments:**
    - piano roll and QWERTY/MIDI recording
    - guitar melody fingering with position lock
    - piano falling notes, sax lens and transposition
@@ -120,3 +120,12 @@ js/
 - The playhead is polled with a timer (not `requestAnimationFrame`) so the display stays in sync when the window isn't painting.
 - Share links use `deflate` (not `deflate-raw`) so the same code runs in Node 20 tests and all browsers.
 - Chord-scale suggestions (`js/lib/chordscale.js`) are rules of thumb: quality first, then the chord's degree in the song's key.
+
+## Phase 2 notes (as built)
+
+- **Feedback round:** transport with ⏮ ▶/❚❚ ■ ⏭, colored drag-and-drop arrangement, chord pictures (guitar / compact piano) in the sketch with per-chord voicing picks (`chords[].gtr` locks), and the progression builder moved from the Chord Explorer into section cards (load / random progression).
+- **Editable backing without an "edit mode":** generated bass/drums are displayed from the timeline (`tl.generated[sectionId]`); the first edit stores them as `bass.notes` / `drums.steps`. Choosing a style regenerates.
+- **Edits while playing** hot-swap the timeline in the scheduler (`player.swap`) instead of restarting, so recording and live editing don't interrupt playback.
+- **Melody fingering** (`lib/fingering.js`) is a dynamic program over hand positions (frets p..p+3, ±1 stretch); a section's `gtrPos` locks it.
+- **Sax** fingerings are for written pitch (B♭3–F♯6) and shared by all saxes; only the transposition differs.
+- **MIDI**: exports chord symbols as text events and section names as markers, so our own files round-trip; foreign files get track classification, chord detection per meter group, splitting at meter changes / markers / 8 bars, and identical consecutive sections merged into repeats.

@@ -42,12 +42,14 @@ export function createPlayer(dispatch) {
         st.passes.push({ time: endTime, tick: st.range.start });
         if (st.passes.length > 8) st.passes.shift();
         st.idx = firstIndex(ev, st.range.start);
+        st.lastT = null;
         continue;
       }
       const e = ev[st.idx];
       const time = st.passTime + (e.t - st.passTick) * st.spt;
       if (time > horizon) return;
       if (time >= ctx.currentTime - 0.02) dispatch(e, Math.max(time, ctx.currentTime), st.spt);
+      st.lastT = e.t;
       st.idx++;
     }
   }
@@ -71,10 +73,21 @@ export function createPlayer(dispatch) {
       t0 += barTicks(m) * spt;
     }
 
-    st = { tl, spt, range: r, loop, passTime: t0, passTick: start, passes: [{ time: t0, tick: start }], idx: firstIndex(tl.events, start) };
+    st = { tl, spt, range: r, loop, passTime: t0, passTick: start, passes: [{ time: t0, tick: start }], idx: firstIndex(tl.events, start), lastT: null };
     onEnd = onFinish;
     timer = setInterval(pump, INTERVAL);
     pump();
+  }
+
+  /** Replace the timeline while playing (after an edit) without restarting. */
+  function swap(tl, range = null) {
+    if (!st) return;
+    st.tl = tl;
+    st.range = range ?? { start: Math.min(st.range.start, tl.length - 1), end: tl.length };
+    let i = 0;
+    const after = st.lastT ?? st.passTick - 1;
+    while (i < tl.events.length && (tl.events[i].t <= after || tl.events[i].tick < st.passTick)) i++;
+    st.idx = i;
   }
 
   function stop() {
@@ -94,7 +107,7 @@ export function createPlayer(dispatch) {
     return { tick: Math.min(st.range.end - 1, pass.tick + (now - pass.time) / st.spt), countIn: false };
   }
 
-  return { play, stop, position, get playing() {
+  return { play, stop, swap, position, get playing() {
     return !!st;
   } };
 }

@@ -755,3 +755,563 @@ code {
 .empty-state {
   color: var(--muted);
 }
+
+/* =====================================================================
+   Phase 2
+   ===================================================================== */
+
+/* --- transport buttons -------------------------------------------------- */
+.transport-buttons {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.tbtn {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 15px;
+  color: var(--text);
+}
+.tbtn:hover {
+  background: var(--surface);
+}
+.tbtn.main {
+  width: 52px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 17px;
+}
+.tbtn.main.on {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.transport-bar.recording {
+  border-color: #e5484d;
+  box-shadow: 0 0 0 1px #e5484d, var(--shadow);
+}
+.rec-dot {
+  color: #e5484d;
+  font-weight: 800;
+  animation: pulse 1s ease-in-out infinite;
+}
+.keys-ctl {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* --- arrangement blocks ------------------------------------------------- */
+.arr-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.arr-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.arr-block {
+  flex: 1 1 0;
+  min-width: 118px;
+  display: grid;
+  gap: 4px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sec) 16%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--sec) 45%, var(--border));
+  border-left: 5px solid var(--sec);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s, opacity 0.15s;
+}
+.arr-block:hover {
+  box-shadow: 0 4px 14px -6px var(--sec);
+}
+.arr-block.dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+  transform: scale(0.97);
+}
+.arr-block.playing {
+  box-shadow: 0 0 0 2px var(--sec), 0 6px 18px -8px var(--sec);
+}
+.arr-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.arr-block .arr-name {
+  font-weight: 800;
+  font-size: 16px;
+}
+.arr-block .arr-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.arr-block .stepper {
+  height: 26px;
+  justify-self: start;
+  background: var(--surface);
+}
+.arr-block .stepper button {
+  width: 24px;
+}
+
+/* --- section cards ------------------------------------------------------- */
+.section-card {
+  border-left: 5px solid var(--sec);
+}
+.sec-color {
+  width: 22px;
+  height: 22px;
+  margin-bottom: 7px;
+  border-radius: 50%;
+  border: 3px solid var(--surface);
+  background: var(--sec);
+  box-shadow: 0 0 0 1px var(--border);
+  cursor: pointer;
+}
+.sketch-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+.sec-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.sec-tab {
+  border: 0;
+  background: none;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.sec-tab:hover {
+  color: var(--text);
+}
+.sec-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--sec);
+}
+.sec-tab small {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.tab-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+.tab-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+.tab-toolbar .quick-entry {
+  flex: 1 1 280px;
+}
+.hint {
+  font-size: 12.5px;
+}
+.small {
+  font-size: 12px;
+}
+.btn.rec {
+  color: #e5484d;
+}
+.btn.rec.on {
+  background: #e5484d;
+  border-color: #e5484d;
+  color: #fff;
+}
+
+/* chord grid with pictures */
+.chord-grid.view-guitar,
+.chord-grid.view-piano {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(170px, calc(var(--slots) * 96px))), 1fr));
+}
+.slot-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  align-content: start;
+}
+.gpick .diagram-btn {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 2px;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.gpick .diagram-btn:hover {
+  background: var(--surface);
+}
+.gpick .chord-diagram {
+  max-width: 110px;
+  margin: 0 auto;
+}
+.gpick-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.gpick-nav button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 7px;
+  width: 26px;
+  height: 22px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+.gpick-nav button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.gpick-nav .lock {
+  width: auto;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.gpick-nav .rank {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.pmini-btn {
+  border: 0;
+  background: none;
+  padding: 2px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.pmini-btn:hover {
+  background: var(--surface);
+}
+.pmini {
+  display: block;
+  width: 100%;
+  max-height: 46px;
+}
+.pm-w {
+  fill: var(--piano-white);
+  stroke: var(--piano-white-edge);
+  stroke-width: 0.4;
+}
+.pm-b {
+  fill: #1d1c1a;
+}
+.pm-w.on,
+.pm-b.on {
+  fill: #77736b;
+}
+.pm-w.on.root,
+.pm-b.on.root {
+  fill: var(--accent);
+}
+.pm-w.on.guide,
+.pm-b.on.guide {
+  fill: var(--chord);
+}
+.pm-w.on.color,
+.pm-b.on.color {
+  fill: var(--changed);
+}
+
+/* --- piano roll ------------------------------------------------------------ */
+.roll-scroll {
+  overflow: auto;
+  max-height: 420px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.pianoroll {
+  outline: none;
+  width: max-content;
+}
+.pianoroll svg {
+  display: block;
+  touch-action: none;
+  user-select: none;
+  cursor: crosshair;
+}
+.pr-row {
+  fill: var(--surface);
+}
+.pr-row.black {
+  fill: var(--surface-2);
+}
+.pr-row.c {
+  fill: color-mix(in srgb, var(--surface) 85%, var(--border));
+}
+.pr-tone {
+  fill: var(--chord);
+  opacity: 0.09;
+}
+.pr-tone.root {
+  fill: var(--accent);
+  opacity: 0.13;
+}
+.pr-line {
+  stroke: var(--border);
+  stroke-width: 0.6;
+}
+.pr-line.beat {
+  stroke-width: 1;
+}
+.pr-line.bar {
+  stroke: var(--muted);
+  stroke-width: 1.2;
+  opacity: 0.6;
+}
+.pr-chord {
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--muted);
+}
+.pr-note {
+  fill: var(--sec, var(--accent));
+  stroke: color-mix(in srgb, var(--sec, var(--accent)) 60%, #000);
+  stroke-width: 0.8;
+  cursor: grab;
+}
+.pr-note-g.sel .pr-note {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+.pr-note.pending {
+  opacity: 0.5;
+}
+.pr-note-label {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #fff;
+  pointer-events: none;
+}
+.pr-playhead {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.pr-key rect {
+  fill: var(--piano-white);
+  stroke: var(--piano-white-edge);
+  stroke-width: 0.5;
+}
+.pr-key.black rect {
+  fill: #2a2925;
+}
+.pr-key text {
+  font-size: 8.5px;
+  fill: #555;
+  text-anchor: end;
+}
+
+/* --- drum grid ----------------------------------------------------------------- */
+.drumgrid {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  width: max-content;
+}
+.dg-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dg-label {
+  width: 68px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: right;
+  flex: none;
+}
+.dg-cells {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 20px);
+  gap: 2px;
+}
+.dg-cell {
+  width: 20px;
+  height: 22px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  padding: 0;
+}
+.dg-cell.beat {
+  background: color-mix(in srgb, var(--surface) 80%, var(--border));
+}
+.dg-cell.group {
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--sec, var(--accent)) 60%, transparent);
+}
+.dg-cell.bar {
+  box-shadow: inset 2px 0 0 var(--muted);
+}
+.dg-cell:hover {
+  background: var(--border);
+}
+.dg-cell.on {
+  background: var(--sec, var(--accent));
+}
+.dg-cell.now {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* --- practice additions ------------------------------------------------------- */
+.sec-chip {
+  border-color: color-mix(in srgb, var(--sec) 50%, var(--border));
+}
+.sec-chip.active {
+  background: var(--sec);
+  border-color: var(--sec);
+  color: #fff;
+}
+.chord-strip {
+  border-top: 4px solid var(--sec);
+}
+.lens-head-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-left: auto;
+}
+.falling-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.piano-wrap {
+  display: grid;
+}
+canvas.falling {
+  width: 100%;
+  height: 230px;
+  display: block;
+  border-radius: 10px 10px 0 0;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--surface-2) 70%, transparent));
+}
+.pkey.melody rect {
+  fill: var(--accent);
+}
+.pkey.held rect {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+/* sax */
+.sax-main {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 130px minmax(0, 2fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .sax-main {
+    grid-template-columns: 1fr 120px;
+  }
+  .sax-upcoming {
+    grid-column: 1 / -1;
+  }
+}
+.sax-now {
+  display: grid;
+  gap: 4px;
+}
+.sax-note {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.sax-warn {
+  color: #e5484d;
+  font-weight: 600;
+  font-size: 13px;
+}
+.sax-upcoming {
+  display: grid;
+  gap: 8px;
+}
+.sax-next-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sax-next {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-weight: 650;
+  font-size: 13px;
+}
+.sax-diagram {
+  width: 120px;
+  height: auto;
+}
+.sax-diagram.small {
+  width: 54px;
+}
+.sax-body {
+  stroke: var(--border);
+  stroke-width: 3;
+}
+.sax-split {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.sax-key {
+  fill: var(--surface);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+.sax-key.on {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.sax-oct {
+  font-size: 8px;
+  fill: var(--muted);
+  text-anchor: middle;
+}

@@ -7,9 +7,9 @@ Small, interactive music practice tools. Plain HTML/CSS/JS (native ES modules): 
 
 | Tool | What it does |
 | --- | --- |
-| **Song Sketchpad** | Sketch chords, drums and bass per section (any meter, swing), then practice along with guitar & piano views, chord-scale overlay, loop, slow-down and count-in. |
+| **Song Sketchpad** | Sketch chords, melodies, bass and drums per section (any meter, swing), then practice along on guitar, piano (incl. falling notes) and sax. MIDI import/export. |
 | **CAGED Scale Explorer** | Any mode or scale across the neck, one CAGED shape at a time. Brightness ladder, "show what changes" compare, drone, playback. |
-| **Chord Explorer** | Type any chord symbol and get every sensible voicing. Build progressions that voice-lead close together. Includes a shape library. |
+| **Chord Explorer** | Type any chord symbol and get every sensible voicing, plus a library of movable shapes. Send a voicing straight to your song. |
 
 ## Run locally
 
@@ -47,17 +47,21 @@ js/lib/guitar.js              Tunings, fretboard math, CAGED shape data
 js/lib/chords.js              Chord parser, voicing search, voice-leading, transposition
 js/lib/chordscale.js          Which scale fits a chord in a key (Dm9 in C → D Dorian)
 js/lib/piano.js               Voice-led & rootless piano voicings
+js/lib/fingering.js           Guitar fingering for melodies (hand-position model, optional lock)
+js/lib/sax.js                 Sax transposition (alto/tenor/soprano/bari) and written-pitch fingerings
 js/lib/audio.js               Plucked-string synth, strum, drone, shared AudioContext
 js/song/model.js              Song document: meters, sections, arrangement, quick chord entry
 js/song/timeline.js           Song → bars, chords (with guitar/piano voicings, chord-scales), audio events
 js/song/generate/             Drum and bass generators (style presets for any meter)
 js/song/store.js              Tiny reactive store + useStore hook; song store with undo & last-song cache
 js/song/codec.js              Share links (deflate + base64url) and JSON files
+js/song/midi.js               Standard MIDI File export/import (chord detection, meter changes, sections)
 js/song/demos.js              Demo songs & the "new song" template
 js/engine/player.js           Look-ahead Web Audio scheduler (loop, tempo %, count-in)
 js/engine/instruments.js      Sampled instruments (FluidR3 via CDN, on demand), synth drums, click, mixer
-js/ui/                        dom helpers, vanilla controls, Preact controls, fretboard, chord diagram
-js/lessons/<id>/              One folder per lesson (JS + optional CSS); song/ is the Song Sketchpad
+js/ui/                        dom helpers, vanilla & Preact controls, fretboard, chord diagram, sax diagram
+js/lessons/<id>/              One folder per lesson (JS + optional CSS)
+js/lessons/song/              Song Sketchpad: song.js (controller), sketch.js, practice.js, pianoroll.js, drumgrid.js
 js/lessons/_template/         Starter lesson to copy (not deployed)
 tests/                        node --test suites
 scripts/serve.js              No-cache dev server
@@ -93,13 +97,27 @@ Everything reads from CSS custom properties at the top of `css/theme.css`. The c
 
 Open it from **Songs** on the home page (new song, continue the last one, or a demo).
 
-- **Sketch:** every section has a name, bars, a meter with grouping (`7/8` as `2+2+3`), a drum style and a bass style. Type chords into the bar grid (one slot per group), or into the quick-entry line: `Dm9 G13 | Cmaj9 | %` (`|` bars, `%` repeat bar, `.` hold). Chain sections in the arrangement with repeats. Tempo, swing, key/scale (used for chord-scale suggestions) and transpose are song-wide.
-- **Practice:** play / loop the song or a section, slow down (40–130 %, no pitch change), count-in, click. Mute any part to play it yourself. The **Now/Next** panel shows the chord, its tones and a suggested scale; the strip shows the section's bars. Lenses:
-  - **Guitar:** voice-led voicings for the whole song (Auto / Low / Mid / High), the next chord as ghosts, fingers that stay put, and the chord-scale around your hand.
-  - **Piano:** voice-led right hand over the bass, or jazz rootless left hand; scale dots and next-chord ghosts.
-- **Saving:** only the last song is cached in this browser. Use **Song ▾ → Copy share link** (the whole song in the URL) or **Save as file** / **Open file…** (JSON).
-- Shortcuts: `Space` play/stop · `←/→` previous/next chord (Practice) · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo.
-- Sounds: chords and bass use FluidR3 GM samples loaded on first play from `gleitz.github.io` (cached by the browser); a synth fills in until they arrive. Drums and click are synthesized.
+**Sketch**
+- **Arrangement:** colored blocks sized by length. Drag to reorder, click to jump there, `×N` for repeats.
+- **Sections** have a name, color, bars and meter with grouping (`7/8` as `2+2+3`), and four tabs:
+  - **Chords:** a bar grid (one slot per group) or quick entry `Dm9 G13 | Cmaj9 | %`. **Load a progression…** / **🎲 Random** fill the section in the song's key. With **Guitar chords** on, each chord shows its voicing; use ‹ › to pick another (a pick is locked 🔒 and the rest of the song re-voices around it). **Piano chords** shows compact keyboards instead.
+  - **Melody:** a piano roll (click to add, drag to move/lengthen, double-click or right-click to delete, arrows nudge). Chord tones are shaded. **● Record** loops the section with a count-in and records from the computer keyboard (**⌨ Keys**: `A W S E D F T G Y H U J K`, `Z`/`X` octave) or a **MIDI keyboard** (Chrome/Edge), quantized to the grid. Optionally lock the guitar position for this melody.
+  - **Bass / Drums:** pick a style to generate from the chords and meter. The result is shown in a roll / step grid, and editing any note turns it into your own part. Pick a style again to regenerate.
+- **Song settings:** tempo, swing, key/scale (used for chord-scale suggestions and "Load a progression"), transpose.
+
+**Practice**
+- Transport: ⏮ previous section · ▶/❚❚ play-pause · ■ stop (back to the start) · ⏭ next section; speed 40–130 % (no pitch change), loop song / section, count-in, click. Mute chords, bass, drums or melody to play that part yourself.
+- **Now / Next** shows the chord, its tones and a suggested scale; the strip shows the current section.
+- Lenses:
+  - **Guitar:** chords (voice-led, Auto/Low/Mid/High), melody (fingered by position, next notes numbered), or both, plus the chord-scale around your hand.
+  - **Piano:** keys or **falling notes** (Synthesia-style; melody, chords and bass toggles); voice-led or rootless; keys you hold on ⌨ / MIDI light up.
+  - **Sax:** alto, tenor, soprano or bari. Written note, concert note, fingering diagram, alternates and the next notes. Without a melody it shows the chord tones to arpeggiate.
+
+**Files & sharing:** only the last song is cached in this browser. **Song ▾** → copy a share link (whole song in the URL), save/open a `.song.json`, **export MIDI** (tracks: chords, bass, melody, drums + chord symbols and section markers), or **open a MIDI file**. Imported files keep their meter changes and sections; chord symbols are detected from the harmony when the file has none.
+
+Shortcuts: `Space` play/pause · `Esc` stop · `Shift+←/→` sections · `←/→` chords (Practice) · `Ctrl+Z` / `Ctrl+Shift+Z` undo/redo.
+
+Sounds: chords, bass and melody use FluidR3 GM samples loaded on demand from `gleitz.github.io` (cached by the browser); a synth fills in until they arrive. Drums and click are synthesized.
 
 ## CAGED Scale Explorer
 
@@ -113,14 +131,8 @@ Shapes are data in `js/lib/guitar.js` (`CAGED_SHAPES`). Each shape is a root anc
 
 ## Chord Explorer
 
-- **Chord finder:** understands symbols like `Cmaj9`, `F#m7b5`, `G13#11`, `C/D`, `D6/9`, `E7alt`, `Bbm(maj7)`, `C9sus4` and `Ebmaj7#11`.
-  - Voicings are found by searching every 4-fret window. Each one must be playable with 4 fingers (or a barre) and keep the root or slash note in the bass. Optional tones like the 5th may be dropped.
-  - Results are grouped by bass string and labeled Drop 2 / Drop 3 / Shell / Close.
-  - **Rootless & inversions** lets the bass player take the root.
-- **Shape library:** shown when the input is empty. Lists movable shapes for 26 chord types in any root.
-- **Progression builder:** type chords (`Dm9 G13 Cmaj9`) or load or randomize a template.
-  - The planner picks voicings that keep the hand close and the top voice smooth.
-  - Use ‹ › on a chord to step through alternatives, best-fitting first. A chosen voicing gets locked 🔒 and the rest re-plan around it.
-  - The neck view shows the current chord, the next chord as ghosts, and which fingers stay put.
-  - Shortcuts: `Space` play · `←/→` move between chords · `↑/↓` cycle voicing.
+- Understands symbols like `Cmaj9`, `F#m7b5`, `G13#11`, `C/D`, `D6/9`, `E7alt`, `Bbm(maj7)`, `C9sus4`, `Ebmaj7#11`.
+- Voicings are found by searching every 4-fret window. Each must be playable with 4 fingers (or a barre) and keep the root or slash note in the bass, while optional tones like the 5th may be dropped. Results are grouped by bass string and labeled Drop 2 / Drop 3 / Shell / Close. **Rootless & inversions** lets the bass player take the root.
+- **Shape library** (empty input): movable shapes for 26 chord types in any root.
+- **+ Add to song** appends the chord, with that exact voicing locked, as a new bar of your current song. Progressions, voice-leading and playback live in the Song Sketchpad.
 - Tweak the voicing taste in `evaluate()` (scoring) and `transitionCost()` (voice-leading) in `js/lib/chords.js`.

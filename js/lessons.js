@@ -41,9 +41,9 @@ export const LESSONS = [
   {
     id: 'chord-explorer',
     title: 'Chord Explorer',
-    summary: 'Type any chord (Cmaj9, C/D, G13♯11) and get every sensible voicing. Build progressions that voice-lead close together.',
+    summary: 'Type any chord (Cmaj9, C/D, G13♯11) and get every sensible voicing, plus a library of movable jazz shapes. Send any voicing to your song.',
     type: 'tool',
-    tags: ['guitar', 'chords', 'jazz', 'voicings', 'progressions'],
+    tags: ['guitar', 'chords', 'jazz', 'voicings'],
     load: () => import('./lessons/chord-explorer/chord-explorer.js'),
   },
   {

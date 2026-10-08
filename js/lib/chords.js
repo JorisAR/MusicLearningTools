@@ -537,3 +537,36 @@ export function chordQuality(chord) {
   if (third === 'sus') return 'sus';
   return 'major';
 }
+
+// ---------------------------------------------------------------------------
+// Chord detection (used by MIDI import): pitch classes → chord symbol
+// ---------------------------------------------------------------------------
+
+// Simplest first: on equal scores the earlier (plainer) quality wins.
+const DETECT_QUALITIES = ['', 'm', '7', 'maj7', 'm7', '6', 'm6', 'sus4', 'sus2', 'dim', 'aug', 'm7b5', 'dim7', '7sus4', 'add9', '9', 'maj9', 'm9', '6/9', '11', 'm11', '13', '7b9', '7#9', 'maj7#11', 'm(maj7)'];
+
+/**
+ * Name the chord formed by pitch classes `pcs` (Set or array), with an optional bass pitch class.
+ * Returns a symbol like 'Dm9' or 'C/D', or null for fewer than 2 distinct notes.
+ */
+export function detectChord(pcsIn, bassPc = null, preferFlats = false) {
+  const pcs = new Set([...pcsIn].map(mod12));
+  if (pcs.size < 2) return null;
+  const names = preferFlats ? FLAT_NAMES : KEYS;
+  let best = null;
+  for (let root = 0; root < 12; root++) {
+    for (const q of DETECT_QUALITIES) {
+      const chord = parseChord(names[root] + q);
+      const tones = chord.tones;
+      const set = new Set(tones.map((t) => t.pc));
+      let score = 0;
+      for (const pc of pcs) score += set.has(pc) ? 2 : -2.5;
+      for (const t of tones) if (!pcs.has(t.pc)) score -= t.role === 'optional' ? 0.3 : t.role === 'root' ? 1.2 : 1.6;
+      if (bassPc != null && mod12(bassPc) === root) score += 1.5;
+      score -= tones.length * 0.05;
+      if (!best || score > best.score + 1e-9) best = { score, symbol: chord.symbol, root };
+    }
+  }
+  if (bassPc != null && mod12(bassPc) !== best.root) return `${best.symbol}/${names[mod12(bassPc)]}`;
+  return best.symbol;
+}

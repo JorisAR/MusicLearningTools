@@ -36,9 +36,11 @@ export function getSampler(id) {
       this.status = 'loading';
       const jobs = [];
       for (let m = def.range[0]; m <= def.range[1]; m += 3) {
+        const url = SAMPLE_BASE + `${def.file}-mp3/` + noteFile(m);
+        const get = () => fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)));
         jobs.push(
-          fetch(SAMPLE_BASE + `${def.file}-mp3/` + noteFile(m))
-            .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+          get()
+            .catch(() => new Promise((res) => setTimeout(res, 800)).then(get)) // one retry for flaky CDN responses
             .then((b) => ctx.decodeAudioData(b))
             .then((buf) => buffers.set(m, buf))
             .catch(() => {}),
@@ -49,6 +51,38 @@ export function getSampler(id) {
         return this;
       });
       return this.ready;
+    },
+    /** Hold a note until the returned function is called (live keyboard / MIDI input). */
+    start(midi, vel, dest) {
+      const { ctx } = getAudio();
+      const t = ctx.currentTime + 0.005;
+      const g = ctx.createGain();
+      g.connect(dest);
+      const amp = (vel / 127) * def.gain;
+      let src;
+      if (buffers.size) {
+        let best = null;
+        for (const m of buffers.keys()) if (best == null || Math.abs(m - midi) < Math.abs(best - midi)) best = m;
+        src = ctx.createBufferSource();
+        src.buffer = buffers.get(best);
+        src.playbackRate.value = Math.pow(2, (midi - best) / 12);
+        g.gain.setValueAtTime(amp, t);
+      } else {
+        src = ctx.createOscillator();
+        src.type = 'triangle';
+        src.frequency.value = 440 * Math.pow(2, (midi - 69) / 12);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(amp * 0.5, t + 0.01);
+      }
+      src.connect(g);
+      src.start(t);
+      return () => {
+        const now = ctx.currentTime;
+        g.gain.cancelScheduledValues(now);
+        g.gain.setValueAtTime(g.gain.value, now);
+        g.gain.setTargetAtTime(0, now, def.release / 3);
+        src.stop(now + def.release * 2 + 0.05);
+      };
     },
     play(midi, time, dur, vel, dest) {
       const { ctx } = getAudio();

@@ -56,6 +56,10 @@ export function meterLabel(m) {
 
 // --- documents --------------------------------------------------------------
 
+/** Section colors (index stored in the song); used as --sec in the UI. */
+export const SECTION_COLORS = ['#e8590c', '#2f6fd6', '#8b5cf6', '#12a594', '#d6409f', '#d9a40b', '#3e9b4f', '#6e56cf'];
+const mod = (n, m) => ((n % m) + m) % m;
+
 export const uid = () => Math.random().toString(36).slice(2, 8);
 
 export function createSection(partial = {}) {
@@ -64,7 +68,11 @@ export function createSection(partial = {}) {
     name: partial.name ?? 'A',
     bars: clampInt(partial.bars, 1, 64, 4),
     meter: makeMeter(partial.meter?.num, partial.meter?.den, partial.meter?.groups),
-    chords: (partial.chords || []).filter((c) => c && typeof c.sym === 'string').map((c) => ({ at: Math.max(0, c.at | 0), sym: c.sym })),
+    color: Number.isInteger(partial.color) ? mod(partial.color, SECTION_COLORS.length) : null,
+    chords: (partial.chords || [])
+      .filter((c) => c && typeof c.sym === 'string')
+      .map((c) => ({ at: Math.max(0, c.at | 0), sym: c.sym, ...(typeof c.gtr === 'string' ? { gtr: c.gtr } : {}) })),
+    gtrPos: Number.isInteger(partial.gtrPos) ? Math.min(15, Math.max(1, partial.gtrPos)) : null, // melody position lock
     melody: (partial.melody || []).map((n) => ({ at: n.at | 0, dur: Math.max(1, n.dur | 0), pitch: n.pitch | 0, vel: n.vel ?? 90 })),
     bass: partial.bass?.notes ? { notes: partial.bass.notes } : { gen: { style: partial.bass?.gen?.style ?? 'root5' } },
     drums: partial.drums?.steps ? { steps: partial.drums.steps } : { gen: { style: partial.drums?.gen?.style ?? 'rock' } },
@@ -73,6 +81,13 @@ export function createSection(partial = {}) {
 
 export function createSong(partial = {}) {
   const sections = (partial.sections?.length ? partial.sections : [{ name: 'A' }]).map(createSection);
+  // Give every section a color, avoiding ones already in use.
+  const used = new Set(sections.map((s) => s.color).filter((c) => c != null));
+  for (const s of sections) {
+    if (s.color != null) continue;
+    s.color = [...SECTION_COLORS.keys()].find((c) => !used.has(c)) ?? sections.indexOf(s) % SECTION_COLORS.length;
+    used.add(s.color);
+  }
   const ids = new Set(sections.map((s) => s.id));
   let arrangement = (partial.arrangement || [])
     .filter((a) => ids.has(a.section))
@@ -134,11 +149,12 @@ export function chordAtSlot(sec, at) {
   return sec.chords.find((c) => c.at === at)?.sym ?? '';
 }
 
-/** Set/clear the chord at a slot; returns a new chords array, sorted. */
+/** Set/clear the chord at a slot; returns a new chords array, sorted. Keeps a voicing lock if the chord is unchanged. */
 export function withChord(chords, at, sym) {
+  const old = chords.find((c) => c.at === at);
   const rest = chords.filter((c) => c.at !== at);
   const s = sym.trim();
-  if (s) rest.push({ at, sym: s });
+  if (s) rest.push(old?.sym === s && old.gtr ? { at, sym: s, gtr: old.gtr } : { at, sym: s });
   return rest.sort((a, b) => a.at - b.at);
 }
 

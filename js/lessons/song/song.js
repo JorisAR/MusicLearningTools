@@ -2,18 +2,19 @@
 // State lives in three stores:
 //   songs – the song document (undoable, cached as the last song)
 //   ui    – view & practice settings (tempo %, loop, mutes, lenses…)
-//   now   – the playhead / cursor (tick, chord index, section instance)
+//   now   – the playhead / cursor (tick) and the notes held on the computer / MIDI keyboard
 
 import { html, render } from '../../vendor/preact-htm.js';
 import { loadCss } from '../../ui/dom.js';
 import { getAudio } from '../../lib/audio.js';
 import { createStore, createSongStore, useStore, loadLastSong, LAST_SONG_KEY } from '../../song/store.js';
 import { decodeSong, encodeSong, songToFile, songFromFile, safeFilename, LINK_WARN_LENGTH } from '../../song/codec.js';
+import { songToMidi, midiToSong } from '../../song/midi.js';
 import { DEMOS, getDemo, newSong } from '../../song/demos.js';
 import { buildTimeline, chordIndexAt, instanceAt } from '../../song/timeline.js';
 import { createPlayer } from '../../engine/player.js';
 import { createMixer, getSampler, playDrum, playClick, SOUNDS } from '../../engine/instruments.js';
-import { Seg, Toggle, Select } from '../../ui/preact-controls.js';
+import { Toggle, Select, Seg } from '../../ui/preact-controls.js';
 import { Sketch } from './sketch.js';
 import { Practice } from './practice.js';
 
@@ -29,12 +30,26 @@ const UI_DEFAULTS = {
   mutes: { chords: false, bass: false, drums: false, click: false, melody: false },
   comp: 'jazzGuitar',
   bassSound: 'bass',
-  lenses: { guitar: true, piano: true },
+  melodySound: 'altoSax',
+  lenses: { guitar: true, piano: true, sax: false },
   scaleOverlay: true,
   labels: 'intervals',
   rootless: false,
   region: 'auto',
+  chordView: 'guitar', // sketch chord pictures: off | guitar | piano
+  snap: 120, // piano-roll grid & record quantize (ticks)
+  keys: false, // computer keyboard plays notes
+  keyOctave: 5, // 'a' = C of this octave (5 → C4)
+  guitarMode: 'both', // chords | melody | both
+  pianoMode: 'keys', // keys | falling
+  falling: { melody: true, chords: true, bass: false },
+  sax: 'alto',
 };
+
+export const PIANO_SOUNDS = ['altoSax', 'piano', 'epiano', 'jazzGuitar', 'nylon'];
+
+// Computer keyboard → semitone offsets (like most DAWs).
+const QWERTY = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12, o: 13, l: 14, p: 15, ';': 16, "'": 17 };
 
 export default {
   async mount(root, { params, setParams }) {
@@ -58,10 +73,20 @@ export default {
     try {
       localStorage.setItem(LAST_SONG_KEY, JSON.stringify(songs.song)); // cache as the last song right away
     } catch {}
-    const ui = createStore({ ...UI_DEFAULTS, ...savedUi, view: params.view || savedUi.view || 'sketch', playing: false, toast: notice });
-    const now = createStore({ tick: 0, countIn: false });
+    const ui = createStore({
+      ...UI_DEFAULTS,
+      ...savedUi,
+      lenses: { ...UI_DEFAULTS.lenses, ...savedUi.lenses },
+      falling: { ...UI_DEFAULTS.falling, ...savedUi.falling },
+      view: params.view || savedUi.view || 'sketch',
+      playing: false,
+      recording: null,
+      toast: notice,
+      midi: null,
+    });
+    const now = createStore({ tick: 0, countIn: false, held: [] });
     ui.subscribe((s) => {
-      const { playing, toast, ...persist } = s;
+      const { playing, toast, recording, midi, shareUrl, shareLong, loading, ...persist } = s;
       try {
         localStorage.setItem(UI_KEY, JSON.stringify(persist));
       } catch {}
@@ -86,10 +111,11 @@ export default {
       for (const [part, muted] of Object.entries(ui.get().mutes)) mixer.setMuted(part, muted);
     };
     const loadSounds = () => {
-      const { comp, bassSound } = ui.get();
-      const jobs = [comp, bassSound].map((id) => getSampler(id).load());
+      const { comp, bassSound, melodySound } = ui.get();
+      const ids = [comp, bassSound];
+      if (songs.song.sections.some((s) => s.melody.length) || ui.get().keys) ids.push(melodySound);
       ui.patch({ loading: true });
-      Promise.all(jobs).then(() => ui.patch({ loading: false }));
+      Promise.all(ids.map((id) => getSampler(id).load())).then(() => ui.patch({ loading: false }));
     };
 
     const dispatch = (e, time, spt) => {
@@ -105,7 +131,7 @@ export default {
           getSampler(st.bassSound).play(e.pitch, time, e.dur * spt, e.vel, mixer.bus.bass);
           break;
         case 'melody':
-          getSampler('altoSax').play(e.pitch, time, e.dur * spt, e.vel, mixer.bus.melody);
+          getSampler(st.melodySound).play(e.pitch, time, e.dur * spt, e.vel, mixer.bus.melody);
           break;
         case 'chord': {
           const c = timeline().chords[e.chord];
@@ -120,13 +146,63 @@ export default {
     };
     const player = createPlayer(dispatch);
 
-    // ---- playhead polling ----
-    // A timer (not requestAnimationFrame) so the display keeps up even when the window isn't painting.
+    // ---- playhead polling (a timer, so it keeps going when the window isn't painting) ----
     let pollTimer = 0;
     const poll = () => {
       const pos = player.position();
-      if (pos) now.set({ tick: pos.tick, countIn: pos.countIn });
+      if (pos) now.patch({ tick: pos.tick, countIn: pos.countIn });
     };
+
+    // ---- live input: computer keyboard & MIDI ----
+    const held = new Map(); // pitch → { stop, at, vel }
+    const noteOn = (pitch, vel = 96) => {
+      if (held.has(pitch)) return;
+      ensureAudio();
+      const s = getSampler(ui.get().melodySound);
+      s.load();
+      const rec = recordTick();
+      held.set(pitch, { stop: s.start(pitch, vel, mixer.bus.melody), at: rec, vel });
+      now.patch({ held: [...held.keys()] });
+    };
+    const noteOff = (pitch) => {
+      const h = held.get(pitch);
+      if (!h) return;
+      h.stop();
+      held.delete(pitch);
+      now.patch({ held: [...held.keys()] });
+      const end = recordTick();
+      if (h.at != null && end != null) commitRecorded(pitch, h.at, end, h.vel);
+    };
+
+    // Recording: notes land in the recorded section's melody, quantized to the grid.
+    let take = 0;
+    const recInstance = () => {
+      const id = ui.get().recording;
+      return id ? timeline().instances.find((i) => i.section.id === id) : null;
+    };
+    function recordTick() {
+      const inst = recInstance();
+      const pos = player.position();
+      if (!inst || !pos || pos.countIn) return null;
+      return pos.tick - inst.start;
+    }
+    function commitRecorded(pitch, at, end, vel) {
+      const inst = recInstance();
+      if (!inst) return;
+      const snap = ui.get().snap;
+      const q = (t) => Math.round(t / snap) * snap;
+      const len = inst.length;
+      let start = q(at);
+      if (start >= len) start -= len;
+      let dur = q(end) - start;
+      if (dur <= 0) dur += len; // wrapped around the loop
+      dur = Math.max(snap, Math.min(dur, len - start));
+      songs.update((d) => {
+        const sec = d.sections.find((s) => s.id === inst.section.id);
+        sec.melody = sec.melody.filter((n) => !(n.at === start && n.pitch === pitch - d.transpose));
+        sec.melody.push({ at: start, dur, pitch: pitch - d.transpose, vel });
+      }, `take:${take}`);
+    }
 
     const actions = {
       play() {
@@ -136,44 +212,52 @@ export default {
         if (!tl.length) return;
         const st = ui.get();
         const cur = Math.min(now.get().tick, tl.length - 1);
-        const inst = instanceAt(tl, cur);
-        const range = st.loop === 'section' && inst ? { start: inst.start, end: inst.start + inst.length } : null;
-        // start on the chord under the cursor
+        const recInst = recInstance();
+        const inst = recInst ?? instanceAt(tl, cur);
+        const range = (st.loop === 'section' || recInst) && inst ? { start: inst.start, end: inst.start + inst.length } : null;
+        // start on the chord under the cursor (or the section start when recording)
         const ci = chordIndexAt(tl, cur);
-        const from = ci >= 0 && (!range || tl.chords[ci].tick >= range.start) ? tl.chords[ci].tick : range?.start ?? 0;
+        let from = ci >= 0 && (!range || tl.chords[ci].tick >= range.start) ? tl.chords[ci].tick : range?.start ?? 0;
+        if (recInst || from < (range?.start ?? 0) || from >= (range?.end ?? tl.length)) from = range?.start ?? from;
         player.play(tl, {
           from,
           range,
-          loop: st.loop !== 'off',
+          loop: st.loop !== 'off' || !!recInst,
           bpm: (songs.song.tempo * st.tempoPct) / 100,
-          countIn: st.countIn,
-          onFinish: () => actions.stop(true),
+          countIn: st.countIn || !!recInst,
+          onFinish: () => actions.stop(),
         });
         ui.patch({ playing: true });
         clearInterval(pollTimer);
         pollTimer = setInterval(poll, 40);
       },
-      stop(atEnd = false) {
+      /** Pause: stop sound, keep the position. */
+      pause() {
         player.stop();
         clearInterval(pollTimer);
-        if (atEnd) now.set({ tick: 0, countIn: false });
-        else now.set({ tick: now.get().tick, countIn: false });
-        ui.patch({ playing: false });
+        now.patch({ countIn: false });
+        ui.patch({ playing: false, recording: null });
+      },
+      /** Stop: stop and go back to the start (of the looped section, if any). */
+      stop() {
+        const tl = timeline();
+        const inst = instanceAt(tl, now.get().tick);
+        actions.pause();
+        now.patch({ tick: ui.get().loop === 'section' && inst ? inst.start : 0 });
       },
       toggle() {
-        player.playing ? actions.stop() : actions.play();
+        player.playing ? actions.pause() : actions.play();
       },
-      /** Restart playback after settings that change the timeline or tempo. */
+      /** Restart playback after settings that change tempo or loop range. */
       refresh() {
-        if (player.playing) {
-          const { countIn } = ui.get();
-          ui.patch({ countIn: false });
-          actions.play();
-          ui.patch({ countIn });
-        }
+        if (!player.playing) return;
+        const { countIn } = ui.get();
+        ui.patch({ countIn: false });
+        actions.play();
+        ui.patch({ countIn });
       },
       seek(tick) {
-        now.set({ tick, countIn: false });
+        now.patch({ tick, countIn: false });
         if (player.playing) actions.refresh();
       },
       step(dir) {
@@ -183,20 +267,75 @@ export default {
         const next = Math.max(0, Math.min(tl.chords.length - 1, ci + dir));
         actions.seek(tl.chords[next].tick);
       },
+      /** Previous / next section. "Previous" restarts the current section unless you're at its very start. */
+      skip(dir) {
+        const tl = timeline();
+        if (!tl.instances.length) return;
+        const t = now.get().tick;
+        const cur = instanceAt(tl, t);
+        let i = cur.index + dir;
+        if (dir < 0 && t - cur.start > barTicksAt(tl, cur.start)) i = cur.index;
+        i = Math.max(0, Math.min(tl.instances.length - 1, i));
+        const target = tl.instances[i].start;
+        if (player.playing && ui.get().loop === 'section') {
+          now.patch({ tick: target });
+          actions.refresh();
+        } else actions.seek(target);
+      },
+      record(sectionId) {
+        if (ui.get().recording === sectionId) return actions.pause();
+        take++;
+        ensureAudio();
+        if (!ui.get().keys && !ui.get().midi) ui.patch({ keys: true });
+        ui.patch({ recording: sectionId });
+        const inst = recInstance();
+        now.patch({ tick: inst.start });
+        actions.play();
+      },
       setUi(patch) {
         ui.patch(patch);
         if (patch.mutes && mixer) for (const [p, m] of Object.entries(ui.get().mutes)) mixer.setMuted(p, m);
-        if ('comp' in patch || 'bassSound' in patch) mixer && loadSounds();
-        if ('tempoPct' in patch || 'loop' in patch || 'rootless' in patch || 'region' in patch) actions.refresh();
+        if (('comp' in patch || 'bassSound' in patch || 'melodySound' in patch) && mixer) loadSounds();
+        if ('tempoPct' in patch || 'loop' in patch) actions.refresh();
+        if ('rootless' in patch || 'region' in patch) player.playing && player.swap(timeline(), currentRange());
         if ('view' in patch) setParams({ view: patch.view });
       },
-      /** Click-to-hear on the lenses. */
+      /** Click-to-hear on lenses, rolls and grids. */
       audition(midis, sound) {
         ensureAudio();
         const s = getSampler(sound);
         s.load();
         const t = getAudio().ctx.currentTime + 0.01;
-        midis.forEach((m) => s.play(m, t, 0.9, 95, mixer.bus.chords));
+        midis.forEach((m) => s.play(m, t, 0.6, 95, mixer.bus.chords));
+      },
+      auditionDrum(voice, vel = 90) {
+        ensureAudio();
+        playDrum(voice, getAudio().ctx.currentTime + 0.01, vel, mixer.bus.drums);
+      },
+      noteOn,
+      noteOff,
+      async connectMidi() {
+        if (!navigator.requestMIDIAccess) return ui.patch({ midi: 'unsupported' });
+        try {
+          const access = await navigator.requestMIDIAccess();
+          const hook = () => {
+            let n = 0;
+            for (const input of access.inputs.values()) {
+              n++;
+              input.onmidimessage = (m) => {
+                const [st, note, vel] = m.data;
+                const type = st & 0xf0;
+                if (type === 0x90 && vel > 0) noteOn(note, vel);
+                else if (type === 0x80 || (type === 0x90 && vel === 0)) noteOff(note);
+              };
+            }
+            ui.patch({ midi: n ? `${n} MIDI input${n > 1 ? 's' : ''}` : 'no MIDI devices' });
+          };
+          access.onstatechange = hook;
+          hook();
+        } catch {
+          ui.patch({ midi: 'MIDI access denied' });
+        }
       },
       toast(msg) {
         ui.patch({ toast: msg });
@@ -212,61 +351,118 @@ export default {
           actions.toast('Share link copied to the clipboard');
         } catch {}
       },
-      exportFile() {
+      download(blob, name) {
         const a = document.createElement('a');
-        a.href = URL.createObjectURL(songToFile(songs.song));
-        a.download = `${safeFilename(songs.song.title)}.song.json`;
+        a.href = URL.createObjectURL(blob);
+        a.download = name;
         a.click();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       },
+      exportFile() {
+        actions.download(songToFile(songs.song), `${safeFilename(songs.song.title)}.song.json`);
+      },
+      exportMidi() {
+        const bytes = songToMidi(songs.song, timeline());
+        actions.download(new Blob([bytes], { type: 'audio/midi' }), `${safeFilename(songs.song.title)}.mid`);
+      },
       async importFile(file) {
         try {
-          actions.stop();
-          songs.replace(await songFromFile(file));
-          now.set({ tick: 0, countIn: false });
+          actions.pause();
+          const isMidi = /\.(mid|midi|smf)$/i.test(file.name);
+          const song = isMidi ? midiToSong(await file.arrayBuffer(), { title: file.name.replace(/\.[^.]+$/, '') }) : await songFromFile(file);
+          songs.replace(song);
+          now.patch({ tick: 0, countIn: false });
           actions.toast(`Opened “${songs.song.title}”`);
-        } catch {
-          actions.toast('That file is not a song file');
+        } catch (err) {
+          actions.toast(`Couldn’t open that file${err?.message ? ` (${err.message})` : ''}`);
         }
       },
       load(song) {
-        actions.stop();
+        actions.pause();
         songs.replace(song);
-        now.set({ tick: 0, countIn: false });
+        now.patch({ tick: 0, countIn: false });
       },
     };
-    // Song edits while playing: rebuild and keep going.
-    songs.subscribe(() => actions.refresh());
+
+    function currentRange() {
+      const tl = timeline();
+      const recInst = recInstance();
+      if (recInst) return { start: recInst.start, end: recInst.start + recInst.length };
+      if (ui.get().loop !== 'section') return null;
+      const inst = instanceAt(tl, now.get().tick);
+      return inst ? { start: inst.start, end: inst.start + inst.length } : null;
+    }
+    // Song edits while playing: hot-swap the timeline, keep playing.
+    songs.subscribe(() => player.playing && player.swap(timeline(), currentRange()));
 
     const app = { songs, ui, now, player, actions, timeline };
 
+    const keyPitch = new Map(); // computer key → the pitch it started
     const onKey = (e) => {
       const typing = e.target.closest?.('input, select, textarea, [contenteditable]');
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !typing) {
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === 'z' && !typing) {
         e.shiftKey ? songs.redo() : songs.undo();
         e.preventDefault();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y' && !typing) {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && k === 'y' && !typing) {
         songs.redo();
         e.preventDefault();
-      } else if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-      else if (e.key === ' ') {
-        actions.toggle();
-        e.preventDefault();
-      } else if (e.key === 'ArrowRight' && ui.get().view === 'practice') actions.step(1), e.preventDefault();
-      else if (e.key === 'ArrowLeft' && ui.get().view === 'practice') actions.step(-1), e.preventDefault();
+        return;
+      }
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (ui.get().keys && !e.target.closest?.('.pianoroll')) {
+        if (k in QWERTY) {
+          if (!e.repeat && !keyPitch.has(k)) {
+            const pitch = ui.get().keyOctave * 12 + QWERTY[k];
+            keyPitch.set(k, pitch);
+            noteOn(pitch);
+          }
+          e.preventDefault();
+          return;
+        }
+        if (k === 'z' || k === 'x') {
+          ui.patch({ keyOctave: Math.max(2, Math.min(7, ui.get().keyOctave + (k === 'x' ? 1 : -1))) });
+          return;
+        }
+      }
+      if (e.key === ' ') actions.toggle();
+      else if (e.key === 'Escape') actions.stop();
+      else if (e.key === 'ArrowRight' && e.shiftKey) actions.skip(1);
+      else if (e.key === 'ArrowLeft' && e.shiftKey) actions.skip(-1);
+      else if (e.key === 'ArrowRight' && ui.get().view === 'practice') actions.step(1);
+      else if (e.key === 'ArrowLeft' && ui.get().view === 'practice') actions.step(-1);
+      else return;
+      e.preventDefault();
+    };
+    const onKeyUp = (e) => {
+      const k = e.key.toLowerCase();
+      if (keyPitch.has(k)) {
+        noteOff(keyPitch.get(k));
+        keyPitch.delete(k);
+      }
     };
     window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKeyUp);
 
     render(html`<${App} app=${app} />`, root);
 
     return () => {
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      for (const p of [...held.keys()]) noteOff(p);
       player.stop();
       clearInterval(pollTimer);
       render(null, root);
     };
   },
 };
+
+function barTicksAt(tl, tick) {
+  const b = tl.bars.find((x) => tick >= x.tick && tick < x.tick + x.length);
+  return b ? b.length : 1920;
+}
 
 // ---------------------------------------------------------------------------
 
@@ -309,8 +505,9 @@ function TopBar({ app }) {
         <summary class="btn">Song ▾</summary>
         <div class="menu-list" onClick=${(e) => e.target.closest('button') && e.currentTarget.parentElement.removeAttribute('open')}>
           <button type="button" onClick=${() => actions.share()}>🔗 Copy share link</button>
-          <button type="button" onClick=${() => actions.exportFile()}>⤓ Save as file</button>
-          <button type="button" onClick=${() => fileInput.click()}>⤒ Open file…</button>
+          <button type="button" onClick=${() => actions.exportFile()}>⤓ Save as song file (.json)</button>
+          <button type="button" onClick=${() => actions.exportMidi()}>⤓ Export MIDI (.mid)</button>
+          <button type="button" onClick=${() => fileInput.click()}>⤒ Open song or MIDI file…</button>
           <hr />
           <button
             type="button"
@@ -323,10 +520,13 @@ function TopBar({ app }) {
       </details>
       <input
         type="file"
-        accept=".json,application/json"
+        accept=".json,.mid,.midi,application/json,audio/midi"
         hidden
         ref=${(el) => (fileInput = el)}
-        onChange=${(e) => e.target.files[0] && actions.importFile(e.target.files[0])}
+        onChange=${(e) => {
+          if (e.target.files[0]) actions.importFile(e.target.files[0]);
+          e.target.value = '';
+        }}
       />
     </div>
   </header>`;
@@ -353,10 +553,15 @@ function Transport({ app }) {
   const tempo = useStore(songs, (s) => s.song.tempo);
   const setMute = (part, v) => actions.setUi({ mutes: { ...st.mutes, [part]: !v } });
   const compOptions = ['jazzGuitar', 'nylon', 'piano', 'epiano'].map((id) => ({ value: id, label: SOUNDS[id].label }));
-  return html`<section class="transport-bar panel">
-    <button class=${`btn btn-primary play${st.playing ? ' on' : ''}`} type="button" onClick=${() => actions.toggle()} title="Play / stop (Space)">
-      ${st.playing ? '■ Stop' : '▶ Play'}
-    </button>
+  return html`<section class=${`transport-bar panel${st.recording ? ' recording' : ''}`}>
+    <div class="transport-buttons" role="group" aria-label="Transport">
+      <button class="tbtn" type="button" title="Previous section (Shift+←)" onClick=${() => actions.skip(-1)}>⏮</button>
+      <button class=${`tbtn main${st.playing ? ' on' : ''}`} type="button" title="Play / pause (Space)" onClick=${() => actions.toggle()}>
+        ${st.playing ? '❚❚' : '▶'}
+      </button>
+      <button class="tbtn" type="button" title="Stop and return to the start (Esc)" onClick=${() => actions.stop()}>■</button>
+      <button class="tbtn" type="button" title="Next section (Shift+→)" onClick=${() => actions.skip(1)}>⏭</button>
+    </div>
     <${Position} app=${app} />
     <div class="transport-group">
       <label class="tempo" title="Practice speed — slows down without changing pitch">
@@ -382,6 +587,7 @@ function Transport({ app }) {
         ['chords', 'Chords'],
         ['bass', 'Bass'],
         ['drums', 'Drums'],
+        ['melody', 'Melody'],
       ].map(
         ([p, label]) => html`<button
           type="button"
@@ -394,14 +600,34 @@ function Transport({ app }) {
         </button>`,
       )}
       <${Select} title="Chord sound" value=${st.comp} options=${compOptions} onChange=${(v) => actions.setUi({ comp: v })} />
+      <${KeysButton} app=${app} />
       ${st.loading && html`<span class="loading" title="Loading instrument samples">loading sounds…</span>`}
     </div>
   </section>`;
 }
 
+function KeysButton({ app }) {
+  const st = useStore(app.ui);
+  const octave = st.keyOctave - 1;
+  return html`<span class="keys-ctl">
+    <button
+      type="button"
+      class=${`chip${st.keys ? ' active' : ''}`}
+      title="Play notes with your computer keyboard: A W S E D F T G Y H U J K = one octave, Z / X = octave down / up"
+      onClick=${() => app.actions.setUi({ keys: !st.keys })}
+    >
+      ⌨ Keys${st.keys ? ` · C${octave}` : ''}
+    </button>
+    <button type="button" class=${`chip${st.midi?.includes('input') ? ' active' : ''}`} title=${st.midi || 'Connect a MIDI keyboard (Chrome / Edge)'} onClick=${() => app.actions.connectMidi()}>
+      ${st.midi?.includes('input') ? '🎹 MIDI' : '🎹 Connect MIDI'}
+    </button>
+  </span>`;
+}
+
 function Position({ app }) {
   const tick = useStore(app.now, (s) => Math.floor(s.tick / 60));
   const countIn = useStore(app.now, (s) => s.countIn);
+  const recording = useStore(app.ui, (s) => s.recording);
   useStore(app.songs, (s) => s.song);
   const tl = app.timeline();
   const t = tick * 60;
@@ -409,7 +635,10 @@ function Position({ app }) {
   const bar = tl.bars.filter((b) => b.inst === inst?.index).findIndex((b) => t >= b.tick && t < b.tick + b.length);
   const pct = tl.length ? (t / tl.length) * 100 : 0;
   return html`<div class="position" title="Section · bar">
-    <span class="pos-label">${countIn ? 'Count-in…' : inst ? `${inst.section.name} · bar ${bar + 1}/${inst.section.bars}` : '—'}</span>
+    <span class="pos-label">
+      ${recording && html`<span class="rec-dot">● REC</span> `}
+      ${countIn ? 'Count-in…' : inst ? `${inst.section.name} · bar ${bar + 1}/${inst.section.bars}` : '—'}
+    </span>
     <span class="pos-track"><span class="pos-fill" style=${{ width: `${pct}%` }}></span></span>
   </div>`;
 }

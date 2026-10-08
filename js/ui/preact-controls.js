@@ -49,3 +49,13 @@ export function Stepper({ label, value, min, max, step = 1, onChange, format = (
   </div>`;
   return label ? html`<${Field} label=${label}>${body}<//>` : body;
 }
+
+/** Mount a DOM node built by vanilla code (e.g. chordDiagram()) inside a Preact tree. */
+export function Vanilla({ node, class: cls = '' }) {
+  return html`<div
+    class=${cls}
+    ref=${(el) => {
+      if (el && node && el.firstChild !== node) el.replaceChildren(node);
+    }}
+  ></div>`;
+}
